@@ -3,8 +3,16 @@ from threading import Lock
 import torch
 from PIL import Image
 from torch.nn.functional import normalize
+from transformers import AutoModel, AutoProcessor
 
-from .model import load_encoder
+
+MODEL_ID = "google/siglip2-base-patch16-224"
+
+
+def load_encoder():
+    processor = AutoProcessor.from_pretrained(MODEL_ID)
+    model = AutoModel.from_pretrained(MODEL_ID, dtype=torch.float32)
+    return model.to("cpu").eval(), processor
 
 
 class Encoder:

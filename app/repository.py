@@ -1,10 +1,17 @@
 from typing import Literal
 
+import psycopg
+from fastapi import HTTPException
 from pgvector import Vector
 
 from .config import Settings
-from .db import connect
 from .schemas import Candidate
+
+
+def connect(settings: Settings):
+    if settings.database_url is None:
+        raise HTTPException(503, "AI service temporarily unavailable")
+    return psycopg.connect(settings.database_url.get_secret_value(), connect_timeout=5)
 
 
 def find_matches(
