@@ -1,4 +1,5 @@
 import logging
+from asyncio import sleep
 from contextlib import asynccontextmanager
 
 import psycopg
@@ -16,11 +17,17 @@ logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.settings = Settings()
-    try:
-        app.state.encoder = Encoder()
-    except Exception:
-        logger.exception("SigLIP2 initialization failed")
-        app.state.encoder = None
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            app.state.encoder = Encoder()
+            break
+        except Exception:
+            if attempt == max_attempts:
+                logger.exception("SigLIP2 initialization failed (%d/%d), aborting startup", attempt, max_attempts)
+                raise
+            logger.warning("SigLIP2 initialization failed (%d/%d), retrying in 2 seconds", attempt, max_attempts)
+            await sleep(2)
     yield
     app.state.encoder = None
 
