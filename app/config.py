@@ -14,4 +14,5 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     max_image_bytes: PositiveInt | None = None
     allowed_image_formats: frozenset[str] | None = None
-
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = "gemini-3.6-flash"
