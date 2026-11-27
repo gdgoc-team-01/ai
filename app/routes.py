@@ -18,25 +18,29 @@ def encoder(request: Request) -> Encoder:
     return request.app.state.encoder
 
 
-def image_vector(request: Request, image: UploadFile) -> list[float]:
-    with decode_image(image, request.app.state.settings) as rgb:
-        return encoder(request).image(rgb)
-
-
 @router.post("/embed/lost")
 def embed_lost(body: LostText, request: Request) -> Embedded:
-    return Embedded(embedding=encoder(request).text(body.item_name, body.description))
+    vector = encoder(request).text(body.item_name, body.description)
+    category = request.app.state.gemini.classify_lost_text(body.item_name, body.description)
+    return Embedded(embedding=vector, category=category)
 
 
 @router.post("/embed/found")
 def embed_found(image: ImageFile, request: Request) -> Embedded:
-    return Embedded(embedding=image_vector(request, image))
+    with decode_image(image, request.app.state.settings) as rgb:
+        vector = encoder(request).image(rgb)
+        category = request.app.state.gemini.classify_found_image(rgb)
+    return Embedded(embedding=vector, category=category)
 
 
 @router.post("/match/lost")
 def match_lost(body: LostMatch, request: Request) -> Matches:
-    vector = encoder(request).text(body.item_name, body.description)
-    return Matches(matches=find_matches(request.app.state.settings, "FOUND", vector))
+    item = embed_lost(body, request)
+    return Matches(matches=find_matches(
+        request.app.state.settings, "FOUND", item.embedding, item.category,
+        x=body.location.x, y=body.location.y,
+        last_seen_at=body.last_seen_at, noticed_missing_at=body.noticed_missing_at,
+    ))
 
 
 @router.post("/match/found")
@@ -49,6 +53,8 @@ def match_found(
     location_y: Annotated[MapY, Form()],
     description: Annotated[str | None, Form()] = None,
 ) -> Matches:
-    vector = image_vector(request, image)
-    return Matches(matches=find_matches(request.app.state.settings, "LOST", vector))
-
+    item = embed_found(image, request)
+    return Matches(matches=find_matches(
+        request.app.state.settings, "LOST", item.embedding, item.category,
+        x=location_x, y=location_y, found_at=found_at,
+    ))

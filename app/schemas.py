@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 
 def check_calendar_time(value: str) -> str:
@@ -42,8 +42,25 @@ class LostMatch(LostText):
     noticed_missing_at: KstMinute
     location: Location
 
+    @model_validator(mode="after")
+    def validate_interval(self):
+        if self.last_seen_at > self.noticed_missing_at:
+            raise ValueError("last_seen_at must not be later than noticed_missing_at")
+        return self
 
-class Embedded(BaseModel):
+
+CategoryCode = Literal[
+    "WALLET", "EARPHONES", "BAG", "UMBRELLA", "CARD", "COSMETICS",
+    "ELECTRONICS", "KEY", "ACCESSORY", "CLOTHING", "OTHER",
+]
+
+
+class Classification(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    category: CategoryCode
+
+
+class Embedded(Classification):
     embedding: Annotated[list[float], Field(min_length=768, max_length=768)]
 
 

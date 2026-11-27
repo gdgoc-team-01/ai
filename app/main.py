@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from .config import Settings
 from .embeddings import Encoder
+from .gemini import Gemini
 from .routes import router
 
 
@@ -28,8 +29,12 @@ async def lifespan(app: FastAPI):
                 raise
             logger.warning("SigLIP2 initialization failed (%d/%d), retrying in 2 seconds", attempt, max_attempts)
             await sleep(2)
-    yield
-    app.state.encoder = None
+    app.state.gemini = Gemini(app.state.settings)
+    try:
+        yield
+    finally:
+        app.state.gemini.close()
+        app.state.encoder = None
 
 
 app = FastAPI(title="GDGoC 분실물 매칭 AI", lifespan=lifespan)
